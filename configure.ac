@@ -985,26 +985,35 @@ dnl
 dnl Check for Lua
 dnl
 
-AC_CHECK_HEADER(lua.h,
-                AC_CHECK_LIB(lua, lua_newstate,
-                  [LIBS="${LIBS} -lm -ldl -llua"
-                   AC_DEFINE([ENABLE_LUA], 1,
-                             [Define if Lua is available.])
-                  ], [
-                   AC_MSG_ERROR([lua not found])
-                  ], -lm),
-                AC_CHECK_HEADER(lua5.1/lua.h,
-                  AC_CHECK_LIB(lua5.1, lua_newstate,
-                    [LIBS="${LIBS} -lm -ldl -llua5.1"
-                     CPPFLAGS="${CPPFLAGS} -I/usr/include/lua5.1"
-                     AC_DEFINE([ENABLE_LUA], 1,
-                               [Define if Lua is available.])
-                    ], [
-                     AC_MSG_ERROR([lua not found])
-                    ], -lm),
-                  AC_MSG_ERROR([lua not found])
-                )
-)
+lua_found=no
+
+for lua_pkgconfig_module in lua-5.1 lua5.1 lua51 lua
+do
+  PKG_CHECK_MODULES([LUA], [$lua_pkgconfig_module], [
+    CFLAGS="$LUA_CFLAGS $CFLAGS"
+    LIBS="$LUA_LIBS $LIBS"
+    lua_found=yes
+    break
+  ], [
+    dnl This argument must be nonempty to prevent the macro from
+    dnl aborting if pkg-config isn't available.
+  ])
+done
+
+AS_IF([test $lua_found = no], [
+  AC_CHECK_HEADER([lua.h], [
+    AC_SEARCH_LIBS([lua_newstate], [lua-5.1 lua5.1 lua], [
+      LIBS="-lm -ldl $LIBS"
+      lua_found=yes
+    ], [], [-lm -ldl])
+  ])
+])
+
+AS_IF([test $lua_found = no], [
+  AC_MSG_ERROR([Lua not found.])
+], [
+  AC_DEFINE([ENABLE_LUA], 1, [Define if Lua is available.])
+])
  
 dnl Needed by src/Makefile.am
 AM_CONDITIONAL([IRI_IS_ENABLED], [test "X$iri" != "Xno"])
